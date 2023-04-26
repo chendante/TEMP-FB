@@ -3,12 +3,13 @@ import codecs
 import torch
 from transformers import BertTokenizer, ElectraTokenizer, AlbertTokenizer, RobertaTokenizer, XLNetTokenizer, XLMTokenizer
 import json
-from temp import TEMPBert, TEMPElectra, TEMPRoberta, TEMPAlbert, TEMPXLNet, TEMPXLM
+from temp import TEMPBert, TEMPElectra, TEMPRoberta, TEMPAutoRoberta, TEMPAlbert, TEMPXLNet, TEMPXLM
 from tqdm import tqdm
+from data_reader import DAGTaxo
 
 
 class Eval:
-    models = {'bert': TEMPBert, 'electra': TEMPElectra, 'albert': TEMPAlbert, 'roberta': TEMPRoberta,
+    models = {'bert': TEMPBert, 'electra': TEMPElectra, 'albert': TEMPAlbert, 'roberta': TEMPAutoRoberta,
               'xlnet': TEMPXLNet, 'xlm': TEMPXLM}
     tokenizers = {'bert': BertTokenizer, 'electra': ElectraTokenizer, 'albert': AlbertTokenizer,
                   'roberta': RobertaTokenizer, 'xlnet': XLNetTokenizer, 'xlm': XLMTokenizer}

@@ -1,5 +1,5 @@
 from .taxo import TaxStruct
-from .models import TEMPBert, TEMPElectra, TEMPAlbert, TEMPRoberta, TEMPXLNet, TEMPXLM
+from .models import TEMPBert, TEMPElectra, TEMPAlbert, TEMPRoberta, TEMPAutoRoberta, TEMPXLNet, TEMPXLM, weighted_loss_fct
 from .trainer import Trainer
 from .sampler import Sampler, Dataset
 from .eval import Eval

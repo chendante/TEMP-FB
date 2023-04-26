@@ -4,36 +4,40 @@ import torch
 import scorer
 import split_data
 import configs
+from tqdm import tqdm
+from functools import partialmethod
+
+tqdm.__init__ = partialmethod(tqdm.__init__, disable=True)
 
 
-def run(split_args, train_args, eval_args):
-    """
-    This func includes three parts: dividing, training, evaluating.
-    The data is transferred by files. So you can change code and do it step by step.
-    """
+def dag_run(train_args):
     util.set_seed(configs.seed)
-    split_args, train_args, eval_args = util.DotDict(split_args), util.DotDict(train_args), util.DotDict(eval_args)
-    # divide raw_data to training and testing set; data will save in files
-    split_data.spilt_data(split_args)
-    # training
-    trainer = temp.trainer.Trainer(train_args)
+    train_args = util.DotDict(train_args)
+
+    trainer = temp.trainer.DAGTrainer(train_args)
 
     if not trainer.train():
         print("Model didn't converge! Please try another seed.")
         return None
-    trainer.save_model()
-    # eval
-    e = temp.Eval(eval_args)
-    results = e.predict()
-    with open(split_args.eval_path, encoding='utf-8') as fp:
-        lines = fp.readlines()
-    trues = [line.strip() for line in lines]
-    acc, mrr, wu_p, wrong_set = scorer.score(results, trainer.tax_graph, trues)
-    return acc, mrr, wu_p
+    # trainer.save_model()
+    trainer.load_model("best")
+    # trainer.eval(100, "test")
+    return trainer.eval(819, "test")
+
+def save_eval_data(train_args):
+    train_args = util.DotDict(train_args)
+
+    trainer = temp.trainer.DAGTrainer(train_args)
+    trainer.save_eval_data()
 
 
 if __name__ == '__main__':
-    dataset = "science"
-    print(run(split_args=configs.split_configs[dataset],
-              train_args=configs.train_configs[dataset],
-              eval_args=configs.eval_configs[dataset]))
+    print(dag_run(configs.mesh_config))
+    # save_eval_data(configs.mesh_config)
+    # trainer = temp.trainer.DAGTrainer(util.DotDict(configs.mesh_config))
+    # # print(trainer._tokenizer.encode("Hello", add_special_tokens=False))
+    # print(trainer._tokenizer.encode_plus("Hello", "Hello", add_special_tokens=True, return_token_type_ids=True))
+    # print()
+    # print(torch.LongTensor([[torch.LongTensor([i for i in range(j, j+2)]) for j in range(k, k+3)] for k in range(4)]))
+
+# nohup python3.9 run.py > output.file 2>&1 &

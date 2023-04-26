@@ -1,3 +1,4 @@
+import transformers
 from transformers.models.bert import BertTokenizer, BertConfig, BertPreTrainedModel, BertModel
 from transformers.models.electra import ElectraPreTrainedModel, ElectraModel, ElectraConfig
 from transformers.models.albert import AlbertModel, AlbertPreTrainedModel, AlbertConfig
@@ -5,12 +6,22 @@ from transformers.models.roberta.modeling_roberta import RobertaModel, RobertaPr
 from transformers.models.xlnet import XLNetModel, XLNetPreTrainedModel, XLNetConfig, XLNetForSequenceClassification
 from transformers.models.xlm import XLMModel, XLMPreTrainedModel, XLMConfig, XLMForSequenceClassification
 from transformers.modeling_utils import SequenceSummary
+from transformers.modeling_utils import PreTrainedModel
 # from transformers.models.xlm_roberta
 # from transformers.models.bart import BartTokenizer, BartPretrainedModel, BartModel, BartConfig
 from torch import nn
 import torch
 from transformers.activations import get_activation
+from transformers import AutoModel
 
+def weighted_loss_fct(pos_score: torch.Tensor, neg_score: torch.Tensor, margin: torch.Tensor, pos_weight):
+    EPS = 1e-9
+    pos_score = pos_score.squeeze().relu().clamp(min=EPS)
+    detached_score = pos_score.clone().mul(1-pos_weight)
+    loss = (-(pos_score.mul(pos_weight) + detached_score) +
+                neg_score.squeeze().relu().clamp(min=EPS) +
+                margin.squeeze().relu().clamp(min=EPS)).clamp(min=0)
+    return loss.sum()
 
 class TEMPBert(BertPreTrainedModel):
     EPS = 1e-9
@@ -210,6 +221,43 @@ class TEMPRoberta(RobertaPreTrainedModel):
                 neg_score.squeeze().relu().clamp(min=cls.EPS) +
                 margin.squeeze().relu().clamp(min=cls.EPS)).clamp(min=0)
         return loss.sum()
+
+class TEMPAutoRoberta(nn.Module):
+    def __init__(self, roberta) -> None:
+        super().__init__()
+        self.roberta = roberta
+        self.dropout = nn.Dropout(roberta.config.hidden_dropout_prob)
+        roberta.config.num_labels = 1
+        self.classifier = RobertaClassificationHead(roberta.config)
+        # self.classifier = nn.Linear(config.hidden_size, 1)
+
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        roberta = AutoModel.from_pretrained(*args, **kwargs)
+        return TEMPAutoRoberta(roberta)
+
+    def forward(
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            head_mask=None,
+            labels=None,
+    ):
+        outputs = self.roberta(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            head_mask=head_mask,
+        )
+        sequence_output = outputs[0]
+        logits = self.classifier(sequence_output)
+        if labels is not None:
+            return self.loss_fct(logits, labels)
+        return logits
+
+    # def save_pretrained(self):
+        
 
 
 class TEMPXLNet(XLNetPreTrainedModel):
